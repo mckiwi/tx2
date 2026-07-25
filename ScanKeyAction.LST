@@ -1,0 +1,224 @@
+C51 COMPILER V9.60.7.0   SCANKEYACTION                                                     12/24/2025 13:49:45 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE SCANKEYACTION
+OBJECT MODULE PLACED IN ScanKeyAction.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE ScanKeyAction.C LARGE OMF2 OPTIMIZE(0,SPEED) BROWSE DEBUG TABS(2)
+
+line level    source
+
+   1          #include "REG_MPC82G516.H"
+   2          #include "userdefine.h"
+   3          
+   4          unsigned char count, Scan_Key_Data;//, ROW;  //基數=0
+   5          void dataout(char keyout);
+   6          void ScanKeySwitch(void);
+   7          //char code TABLE[]={"ABCDEFGHIJKLMNOPQRSTUVWXYZ"};//陣列字元資料 
+   8          void ScanSKeySwitch(void);
+   9          void Sdataout(char Skeyout);
+  10          void UDKeydataout(char UDkeyout);
+  11          void ScanUDKeySwitch(void);
+  12          
+  13          //:Dennis,A externs
+  14          extern char preSet_DIRECTPWR, preSet_INPUT_Function;
+  15          extern char fromSTB_SW;
+  16          
+  17          
+  18          
+  19          
+  20          void Sdataout(char Skeyout)
+  21          {
+  22   1        U8 Skey_Number;//,i;
+  23   1        Skey_Number = Skeyout;    //按鍵資料由LED輸出
+  24   1        POWER_GreenLED_ON;
+  25   1        //*** PCLK1_Action();
+  26   1        PCLK_Action(IOEXP_SRC);   //~DA,240808
+  27   1        PCLK_Action(IOEXP_FUNC);  //~DA,240808,added!
+  28   1      
+  29   1        NJWDelay(150);
+  30   1        if ((Skeyout != 6) && (Skeyout != 7))         //:Dennis,A
+  31   1            while(!(COL0 & COL1 & COL2 & COL3))//若COL0~3≠1111未放開按鍵
+  32   1        NJWDelay(150);
+  33   1        switch(Skey_Number)
+  34   1        {
+  35   2          case(0):{Limit_VR_Set(); break;}
+  36   2          case(1):{Set_Power_ON_VR_Preset(); break;}
+  37   2          case(2):{Restore_Preset_Function(); break;}
+  38   2          case(3):{Cancel_Remote_Key(); break;}
+  39   2          case(4):{Limit_VR_Set_Action(); break;}
+  40   2          case(5):{Set_Power_ON_VR_Preset_Action(); break;}
+  41   2          //:Dennis,A
+  42   2          case(6):
+  43   2            { //:Dennis, set Preset directPower, not allow from directPowerON
+  44   3              if (fromSTB_SW == 1)
+  45   3                DIRECTPower_Preset_Function(); 
+  46   3              break;
+  47   3            }                           
+  48   2          case(7):
+  49   2            { //:Dennis, set Preset Input source, not allow from directPowerON
+  50   3              if (fromSTB_SW == 1)
+  51   3                INPUT_Preset_Function(preSet_INPUT_Function); 
+  52   3              break;
+  53   3            } 
+  54   2          default:{break;}
+  55   2        }
+C51 COMPILER V9.60.7.0   SCANKEYACTION                                                     12/24/2025 13:49:45 PAGE 2   
+
+  56   1      }//End of Sdataout(char Skeyout)
+  57          
+  58          void SKey_Limit_OK_Switch(void)
+  59          {
+  60   1      //  ROW=0xff;
+  61   1        ROW0 = ROW1 = ROW2 = ROW3 = 1; ROW0 = 0; //僅掃描輸出ROW0=0
+  62   1        if(COL3 == 0) Sdataout(4);//若檢查COL3 = 0，按鍵資料輸出 = 4
+  63   1      }//End of ScanSKey_OK_Switch(void)
+  64          
+  65          void SKey_Preset_OK_Switch(void)
+  66          {
+  67   1      //  ROW=0xff;
+  68   1        ROW0 = ROW1 = ROW2 = ROW3 = 1; ROW0 = 0; //僅掃描輸出ROW0=0
+  69   1        if(COL3 == 0) Sdataout(5);//若檢查COL3 = 0，按鍵資料輸出 = 5
+  70   1      }//End of ScanSKey_OK_Switch(void)
+  71          
+  72          void Get_SKey(void)
+  73          {
+  74   1      //  ROW=0xff;
+  75   1      
+  76   1        ROW0 = ROW1 = ROW2 = ROW3 = 1; ROW3 = 0;   //僅掃描輸出ROW3=0
+  77   1        if((COL0 == 0) && (COL1 == 0)) Sdataout(0);//若檢查COL0=0,COL1=0，按鍵資料輸出 = 0
+  78   1        if((COL2 == 0) && (COL3 == 0)) Sdataout(1);//若檢查COL2=0,COL3=0，按鍵資料輸出 = 1
+  79   1      
+  80   1        ROW0 = ROW1 = ROW2 = ROW3 = 1; ROW2 = 0;   //僅掃描輸出ROW2=0
+  81   1        if((COL0 == 0) && (COL1 == 0)) Sdataout(2);//若檢查COL0=0,COL1=0，按鍵資料輸出 = 2
+  82   1        if((COL2 == 0) && (COL3 == 0)) Sdataout(3);//若檢查COL2=0,COL3=0，按鍵資料輸出 = 3
+  83   1        
+  84   1        //:addFunct
+  85   1        //:Dennis,A -- preSet directPower, preSet Input source
+  86   1        /////////////////////////////////////////////////////////////////////////////////////////////   
+  87   1        ROW0 = ROW2 = ROW3 = 1; ROW1 = 0;         //僅掃描輸出ROW1=0
+  88   1        if (COL0 == 0) Sdataout(6); //:Dennis, preSet directPower
+  89   1      
+  90   1        ROW1 = ROW2 = ROW3 = 1; ROW0 = 0;         //僅掃描輸出ROW0=0 BT,AUX,DVD,KTV
+  91   1        if (COL3 == 0) { preSet_INPUT_Function = KTV ; Sdataout(7); }
+  92   1        if (COL2 == 0) { preSet_INPUT_Function = DVD ; Sdataout(7); } 
+  93   1        if (COL1 == 0) { preSet_INPUT_Function = AUX ; Sdataout(7); } 
+  94   1        if (COL0 == 0) { preSet_INPUT_Function = BT ; Sdataout(7); }
+  95   1      
+  96   1        ROW0 = ROW2 = ROW3 = 1; ROW1 = 0;         //僅掃描輸出ROW0=1 COAX,OPT1,OPT2
+  97   1        if (COL3 == 0) { preSet_INPUT_Function = COAX ; Sdataout(7); }
+  98   1        if (COL2 == 0) { preSet_INPUT_Function = OPT1 ; Sdataout(7); }  
+  99   1        if (COL1 == 0) { preSet_INPUT_Function = OPT2 ; Sdataout(7); }  
+ 100   1      
+ 101   1        //:clear
+ 102   1        ROW0 = ROW1 = ROW2 = ROW3 = 1;        //Clear
+ 103   1        ///////////////////////////////////////////////////////////////////////////////////////////// 
+ 104   1        
+ 105   1      }//End of ScanSKeySwitch(void)
+ 106          
+ 107          void ScanKeySwitch(void)
+ 108          {
+ 109   1      //  ROW=0xff;
+ 110   1        ROW0 = ROW1 = ROW2 = ROW3 = 1; ROW0 = 0; //僅掃描輸出ROW0=0
+ 111   1        if(COL3 == 0) dataout(0);//若檢查COL0=0，按鍵資料輸出=0
+ 112   1        if(COL2 == 0) dataout(1);//若檢查COL1=0，按鍵資料輸出=1
+ 113   1        if(COL1 == 0) dataout(2);//若檢查COL2=0，按鍵資料輸出=2
+ 114   1        if(COL0 == 0) dataout(3);//若檢查COL3=0，按鍵資料輸出=3
+ 115   1           
+ 116   1        ROW0 = ROW1 = ROW2 = ROW3 = 1; ROW1 = 0; //僅掃描輸出ROW1=0
+ 117   1        if(COL3 == 0) dataout(4);//若檢查COL0=0，按鍵資料輸出=4
+C51 COMPILER V9.60.7.0   SCANKEYACTION                                                     12/24/2025 13:49:45 PAGE 3   
+
+ 118   1        if(COL2 == 0) dataout(5);//若檢查COL1=0，按鍵資料輸出=5
+ 119   1        if(COL1 == 0) dataout(6);//若檢查COL2=0，按鍵資料輸出=6
+ 120   1        if(COL0 == 0) dataout(7);//若檢查COL3=0，按鍵資料輸出=7
+ 121   1           
+ 122   1        ROW0 = ROW1 = ROW2 = ROW3 = 1; ROW2 = 0;   //僅掃描輸出ROW2=0
+ 123   1        if(COL3 == 0) dataout(8);  //若檢查COL0=0，按鍵資料輸出=8
+ 124   1        if(COL2 == 0) dataout(9);  //若檢查COL1=0，按鍵資料輸出=9
+ 125   1        if(COL1 == 0) dataout(0x0a);//若檢查COL2=0，按鍵資料輸出=A
+ 126   1        if(COL0 == 0) dataout(0x0b);//若檢查COL3=0，按鍵資料輸出=B
+ 127   1          
+ 128   1        ROW0 = ROW1 = ROW2 = ROW3 = 1; ROW3 = 0;  //僅掃描輸出ROW3=0
+ 129   1        if(COL3 == 0) dataout(0x0c);//若檢查COL0=0，按鍵資料輸出=C
+ 130   1        if(COL2 == 0) dataout(0x0d);//若檢查COL1=0，按鍵資料輸出=D
+ 131   1        if(COL1 == 0) dataout(0x0e);//若檢查COL2=0，按鍵資料輸出=E
+ 132   1        if(COL0 == 0) dataout(0x0f);//若檢查COL3=0，按鍵資料輸出=F
+ 133   1      
+ 134   1        //:clear
+ 135   1        ROW0 = ROW1 = ROW2 = ROW3 = 1;        //Clear
+ 136   1      
+ 137   1      }//End of ScanKeySwitch(void)
+ 138          
+ 139          
+ 140          //
+ 141          //:Dennis,revised for TX-2  //Might need to take care of "SBUF=TABLE[n]"
+ 142          //
+ 143          void dataout(char keyout)
+ 144          {
+ 145   1        U8 key_Number;//,i;
+ 146   1        key_Number = keyout;    //按鍵資料由LED輸出
+ 147   1        NJWDelay(150);
+ 148   1        while(!(COL0 & COL1 & COL2 & COL3))//若COL0~3≠1111未放開按鍵
+ 149   1          NJWDelay(150);
+ 150   1        switch(key_Number)
+ 151   1        {
+ 152   2          case(0):{INPUT_Function = KTV; INPUT_Action(); break;}
+ 153   2          case(1):{INPUT_Function = DVD; INPUT_Action(); break;}
+ 154   2          case(2):{INPUT_Function = AUX; INPUT_Action(); break;}
+ 155   2          case(3):{INPUT_Function = BT; INPUT_Action(); break;}
+ 156   2          case(4):{INPUT_Function = COAX; INPUT_Action(); break;} 
+ 157   2          case(5):{INPUT_Function = OPT1; INPUT_Action(); break;}
+ 158   2          case(6):{INPUT_Function = OPT2; INPUT_Action(); break;}       
+ 159   2          case(7):{LOUD_Function++; Loud_Action(); break;}
+ 160   2          case(8):{//SBUF=TABLE[7];   -->//SPA
+ 161   3                //SPA
+ 162   3                if(SP_Function == AB_OFF) SP_Function = A_ON;
+ 163   3                else if(SP_Function == A_ON) SP_Function = AB_OFF;
+ 164   3                  else if(SP_Function == B_ON) SP_Function = AB_ON;
+ 165   3                    else if(SP_Function == AB_ON) SP_Function = B_ON;
+ 166   3                SP_Action();      
+ 167   3                break;
+ 168   3              }
+ 169   2          case(9):{//SBUF=TABLE[6];   -->//SPB
+ 170   3                //SPB
+ 171   3                if(SP_Function == AB_OFF) SP_Function = B_ON;
+ 172   3                else if(SP_Function == A_ON) SP_Function = AB_ON;
+ 173   3                  else if(SP_Function == B_ON) SP_Function = AB_OFF;
+ 174   3                    else if(SP_Function == AB_ON) SP_Function = A_ON;
+ 175   3                SP_Action();      
+ 176   3                break;
+ 177   3              }
+ 178   2          case(10):{STECHO_Function++; STECHO_Action(); break;}
+ 179   2          case(11):{ECHO_Function++; ECHO_Action(); break;}
+C51 COMPILER V9.60.7.0   SCANKEYACTION                                                     12/24/2025 13:49:45 PAGE 4   
+
+ 180   2      
+ 181   2          case(12):{REV_Function++; REV_Action(); break;}
+ 182   2          case(13):{HICUT_Function++; HICUT_Action(); break;}
+ 183   2          case(14):{LOWCUT_Function++; LOWCUT_Action(); break;}
+ 184   2          case(15):{ANTI_Function++; ANTI_Action(); break;}
+ 185   2          default:{break;}
+ 186   2        }
+ 187   1      }//End of dataout(char keyout)
+ 188          
+ 189          
+ 190          
+ 191          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    900    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      6    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,10 @@
+"TX-2.obj",
+"FastKey.obj",
+"ScanKeyAction.obj",
+"PWM.obj",
+"RS232.obj",
+"Eep24C04.obj",
+"NJW1159.obj",
+"IOEXP6524.obj" 
+TO "TX-2_20241007-IOEXP_MCUBD" 
+

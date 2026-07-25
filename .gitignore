@@ -1,0 +1,13 @@
+*.lst
+*.obj
+*.bak
+temp\
+note\
+*.iex
+*.htm
+*.html
+*.hex
+*.Inp
+*.MAP
+*.SBR
+

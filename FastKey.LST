@@ -1,0 +1,346 @@
+C51 COMPILER V9.60.7.0   FASTKEY                                                           12/24/2025 13:49:45 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE FASTKEY
+OBJECT MODULE PLACED IN FastKey.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE FastKey.c LARGE OMF2 OPTIMIZE(0,SPEED) BROWSE DEBUG TABS(2)
+
+line level    source
+
+   1          #include "REG_MPC82G516.H"
+   2          #include "userdefine.h"
+   3          
+   4          //========Main Volume Process=================================
+   5          void    MainVolumeGetRotateKey(void);
+   6          void    MainRotateKeyTrigger(U8 x_MaingetValue);
+   7          void    MainRotateKeyDebounceEnd(U8 x_MainKeydata);
+   8          //========Mic Volume Process==================================
+   9          void    MicVolumeGetRotateKey(void);
+  10          void    MicRotateKeyTrigger(U8 x_MicgetValue);
+  11          void    MicRotateKeyDebounceEnd(U8 x_MicKeydata);
+  12          //===========================================================
+  13          void    MainMicRotateKeyProcess(void);
+  14          void    GetFirstRotateKeyData(void);
+  15          void    LeftRotary(U8 x_Main_Mic_Sel_L);
+  16          void    RightRotary(U8 x_Main_Mic_Sel_R);
+  17          //void    PowerOn_VU_Mode(void);
+  18          //===========================================================
+  19          //====================Key Define Flage========================
+  20          U8  gc_Main_Mic_Flag;
+  21          //===================Main Key Define==========================
+  22          U8  gc_MainRotateOldKey;
+  23          U8  gc_MainRotateNewKey;
+  24          U8  gc_MainRotateXorTemp;
+  25          U8  gc_MainRotateDebounceCount;
+  26          //===================Main Key Define==========================
+  27          U8  gc_MicRotateOldKey;
+  28          U8  gc_MicRotateNewKey;
+  29          U8  gc_MicRotateXorTemp;
+  30          U8  gc_MicRotateDebounceCount;
+  31          //===========================================================
+  32          //=========Main Volume========================================
+  33          U8 data  gc_ComVolume;
+  34          U8 data  gc_MicOverAllVolume;
+  35          //===========================================================
+  36          void MainVolumeGetRotateKey(void);
+  37          void MainRotateKeyTrigger(U8 x_MaingetValue);
+  38          void MainRotateKeyDebounceEnd(U8 x_MainKeydata);
+  39          void MicVolumeGetRotateKey(void);
+  40          void MicRotateKeyTrigger(U8 x_MicgetValue);
+  41          void MicRotateKeyDebounceEnd(U8 x_MicKeydata);
+  42          void MainMicRotateKeyProcess(void);
+  43          void RightRotary(U8 x_Main_Mic_Sel_R);//右旋
+  44          void LeftRotary(U8 x_Main_Mic_Sel_L);//左旋
+  45          void GetFirstRotateKeyData(void);
+  46          void Music_UP_Action(void);
+  47          void Music_DN_Action(void);
+  48          //===========================================================
+  49          //如果有變更Port及接腳,須修改有標註"需修改"的參數.
+  50          void MainVolumeGetRotateKey(void)
+  51          {
+  52   1          U8 x_MainGetKeyTemp;
+  53   1      
+  54   1           
+  55   1          if(gc_Main_Mic_Flag & D_MainKeyDebounce)
+C51 COMPILER V9.60.7.0   FASTKEY                                                           12/24/2025 13:49:45 PAGE 2   
+
+  56   1          {
+  57   2              if(gc_MainRotateDebounceCount != 0)
+  58   2              {
+  59   3                  gc_MainRotateDebounceCount--;
+  60   3                  return;
+  61   3              }
+  62   2          }
+  63   1          x_MainGetKeyTemp = P0 & 0x03;//需修改 原0x03
+  64   1          x_MainGetKeyTemp = P0 & 0x03;//需修改 原0x03
+  65   1          x_MainGetKeyTemp = P0 & 0x03;//需修改 原0x03
+  66   1          if(gc_MainRotateOldKey == x_MainGetKeyTemp)
+  67   1          {
+  68   2              gc_Main_Mic_Flag &= 0xf0;//不需修改
+  69   2          }else{
+  70   2                 MainRotateKeyTrigger(x_MainGetKeyTemp);
+  71   2               }
+  72   1      }//End of MainVolumeGetRotateKey(void)
+  73          
+  74          void MicVolumeGetRotateKey(void)
+  75          {
+  76   1          U8 x_MicGetKeyTemp;
+  77   1          if(gc_Main_Mic_Flag & D_MicKeyDebounce)
+  78   1          {
+  79   2              if(gc_MicRotateDebounceCount != 0)
+  80   2              {
+  81   3                  gc_MicRotateDebounceCount--;
+  82   3                  return;
+  83   3              }
+  84   2          }
+  85   1          /***Orig,~DD,240809
+  86   1          x_MicGetKeyTemp = P0 & 0x0c;//需修改 原0x0c
+  87   1          x_MicGetKeyTemp = P0 & 0x0c;//需修改 原0x0c
+  88   1          x_MicGetKeyTemp = P0 & 0x0c;//需修改 原0x0c
+  89   1          ***/
+  90   1          //~DA,240809,
+  91   1          x_MicGetKeyTemp = (P1 & 0xc0)>>4;//需修改 0xc0 -->simu:0x0c
+  92   1          x_MicGetKeyTemp = (P1 & 0xc0)>>4;//需修改 0xc0 -->simu:0x0c
+  93   1          x_MicGetKeyTemp = (P1 & 0xc0)>>4;//需修改 0xc0 -->simu:0x0c
+  94   1      
+  95   1          if(gc_MicRotateOldKey == x_MicGetKeyTemp)
+  96   1          {
+  97   2              gc_Main_Mic_Flag &= 0x0f;//不需修改
+  98   2          }else{
+  99   2                  MicRotateKeyTrigger(x_MicGetKeyTemp);
+ 100   2               }
+ 101   1      }//End of MicVolumeGetRotateKey(void) 
+ 102          //===========================================================
+ 103          void MainRotateKeyTrigger(U8 x_MaingetValue)
+ 104          {
+ 105   1          if(gc_Main_Mic_Flag & D_MainKeyDebounce)
+ 106   1          {
+ 107   2              MainRotateKeyDebounceEnd(x_MaingetValue);
+ 108   2          }else{
+ 109   2                  gc_Main_Mic_Flag |= D_MainKeyDebounce;
+ 110   2                  gc_MainRotateDebounceCount = 10;
+ 111   2                  gc_MainRotateXorTemp = x_MaingetValue & 0x03;//需修改 原0x03
+ 112   2               }
+ 113   1      }//End of MainRotateKeyTrigger(U8 x_MaingetValue)
+ 114          
+ 115          void MicRotateKeyTrigger(U8 x_MicgetValue)
+ 116          {
+ 117   1          if(gc_Main_Mic_Flag & D_MicKeyDebounce)
+C51 COMPILER V9.60.7.0   FASTKEY                                                           12/24/2025 13:49:45 PAGE 3   
+
+ 118   1          {
+ 119   2              MicRotateKeyDebounceEnd(x_MicgetValue);
+ 120   2          }else{
+ 121   2                  gc_Main_Mic_Flag |= D_MicKeyDebounce;
+ 122   2                  gc_MicRotateDebounceCount = 10;
+ 123   2                  //***Orig,//~DD,240809  gc_MicRotateXorTemp = x_MicgetValue & 0x0c;//需修改 原0x0c
+ 124   2                  gc_MicRotateXorTemp = x_MicgetValue & 0x0c;//需修改 0xc0-->simu:0x0c
+ 125   2               }
+ 126   1      }//End of MicRotateKeyTrigger(U8 x_MicgetValue)
+ 127          //===========================================================
+ 128          void MainRotateKeyDebounceEnd(U8 x_MainKeydata)
+ 129          {
+ 130   1          U8 x_temp;
+ 131   1          x_temp = x_MainKeydata & 0x03;//需修改 原0x03
+ 132   1          gc_Main_Mic_Flag &= (~D_MainKeyDebounce);
+ 133   1          if(gc_MainRotateXorTemp ^ x_temp)
+ 134   1          {
+ 135   2              gc_Main_Mic_Flag &= 0xf0;//不需修改
+ 136   2              return;
+ 137   2          }
+ 138   1          gc_MainRotateNewKey = x_temp;
+ 139   1          gc_Main_Mic_Flag |= D_MainRotateKeySuccess;
+ 140   1      }//End of MainRotateKeyDebounceEnd(U8 x_MainKeydata)
+ 141          
+ 142          void MicRotateKeyDebounceEnd(U8 x_MicKeydata)
+ 143          {
+ 144   1          U8 x_tempMic;
+ 145   1          //***Orig,~DD,240809,    x_tempMic = x_MicKeydata & 0x0c;//需修改 原0x0c
+ 146   1          //***Orig,~DM,240809, x_tempMic = x_MicKeydata & 0xc0;//需修改 原0xc0
+ 147   1          x_tempMic = (x_MicKeydata & 0x0c); //需修改 原0xc0 -->sumi:0x0c  //~DA,240809
+ 148   1          gc_Main_Mic_Flag &= (~D_MicKeyDebounce);
+ 149   1          if(gc_MicRotateXorTemp ^ x_tempMic)
+ 150   1          {
+ 151   2              gc_Main_Mic_Flag &= 0x0f;//不需修改
+ 152   2              return;
+ 153   2          }
+ 154   1          gc_MicRotateNewKey = x_tempMic;
+ 155   1          gc_Main_Mic_Flag |= D_MicRotateKeySuccess;
+ 156   1      }//End of MicRotateKeyDebounceEnd(U8 x_MicKeydata)
+ 157          
+ 158          //===========================================================
+ 159          void MainMicRotateKeyProcess(void)
+ 160          {
+ 161   1          U8 x_MainMicData,x_main_mic_sel;
+ 162   1          if(gc_Main_Mic_Flag & D_MainRotateKeySuccess)
+ 163   1          {
+ 164   2            gc_Main_Mic_Flag &= (~D_MainRotateKeySuccess);
+ 165   2            x_MainMicData = gc_MainRotateOldKey << 2;
+ 166   2            //~DD,240809,Orig, x_MainMicData &= 0x0c;//需修改 原0x0c
+ 167   2            x_MainMicData &= 0x0c;//需修改 原0xc0 -->simu:0x0c
+ 168   2            x_MainMicData |= gc_MainRotateNewKey;
+ 169   2            gc_MainRotateOldKey = gc_MainRotateNewKey & 0x03;//需修改 原0x03
+ 170   2            x_MainMicData &= 0x0f;//需修改 原0x0f
+ 171   2            x_main_mic_sel = 0;
+ 172   2          }else{
+ 173   2            if(gc_Main_Mic_Flag & D_MicRotateKeySuccess)
+ 174   2            {
+ 175   3              gc_Main_Mic_Flag &= (~D_MicRotateKeySuccess);
+ 176   3              x_MainMicData = gc_MicRotateOldKey;
+ 177   3              gc_MicRotateOldKey = gc_MicRotateNewKey;
+ 178   3              x_MainMicData |= gc_MicRotateNewKey >> 2;
+ 179   3              x_MainMicData &= 0x0f;//需修改 原0x0f
+C51 COMPILER V9.60.7.0   FASTKEY                                                           12/24/2025 13:49:45 PAGE 4   
+
+ 180   3              x_main_mic_sel = 1;
+ 181   3            }else{ return;}
+ 182   2          }
+ 183   1      //====================================================================
+ 184   1        switch(x_MainMicData)
+ 185   1        {
+ 186   2          case (0x01)://需修改 原0x01
+ 187   2              {
+ 188   3              RightRotary(x_main_mic_sel);
+ 189   3              break;
+ 190   3            }
+ 191   2          case (0x0b)://需修改 原0x0b
+ 192   2            {
+ 193   3              LeftRotary(x_main_mic_sel);
+ 194   3              break;
+ 195   3            }
+ 196   2          default:{break;}
+ 197   2        }
+ 198   1      }//End of MainMicRotateKeyProcess(void)
+ 199          //===========================================================
+ 200          // Volume Up
+ 201          //===========================================================
+ 202          void RightRotary(U8 x_Main_Mic_Sel_R)//右旋
+ 203          {
+ 204   1        switch(x_Main_Mic_Sel_R)
+ 205   1        {
+ 206   2          //*****************************************************
+ 207   2          // Music Volume Up
+ 208   2          //*****************************************************
+ 209   2          case (0x00)://不需修改
+ 210   2            {
+ 211   3              Volume_Action_Flag = 1;
+ 212   3              Music_Volume_UP_Action();
+ 213   3              break;
+ 214   3                  }
+ 215   2          //*****************************************************
+ 216   2          // Mic Volume Up
+ 217   2          //*****************************************************
+ 218   2          case (0x01)://不需修改
+ 219   2            {
+ 220   3              Volume_Action_Flag = 1;
+ 221   3              Mic_Volume_UP_Action();
+ 222   3              break;
+ 223   3            }
+ 224   2          default:{break;}
+ 225   2        }
+ 226   1      }//End of RightRotary(U8 x_Main_Mic_Sel_R)//右旋
+ 227          //===========================================================
+ 228          // Volume Down
+ 229          //===========================================================
+ 230          void LeftRotary(U8 x_Main_Mic_Sel_L)//左旋
+ 231          {
+ 232   1        switch(x_Main_Mic_Sel_L)
+ 233   1        {
+ 234   2          //*****************************************************
+ 235   2          // Music Volume Down
+ 236   2          //*****************************************************
+ 237   2          case (0x00)://不需修改
+ 238   2                  {
+ 239   3              Volume_Action_Flag = 1;
+ 240   3              Music_Volume_DN_Action();
+ 241   3              break;
+C51 COMPILER V9.60.7.0   FASTKEY                                                           12/24/2025 13:49:45 PAGE 5   
+
+ 242   3                  }
+ 243   2          //*****************************************************
+ 244   2          // Mic Volume Down
+ 245   2          //*****************************************************
+ 246   2          case (0x01)://不需修改
+ 247   2            {
+ 248   3              Volume_Action_Flag = 1;
+ 249   3              Mic_Volume_DN_Action();
+ 250   3              break;
+ 251   3            }
+ 252   2          default:{break;}
+ 253   2        }
+ 254   1      }//End of LeftRotary(U8 x_Main_Mic_Sel_L)//左旋
+ 255          
+ 256          void GetFirstRotateKeyData(void)
+ 257          {
+ 258   1          //=======Clear Key=======================================
+ 259   1        gc_Main_Mic_Flag = 0;
+ 260   1        gc_MainRotateOldKey = 0;
+ 261   1        gc_MainRotateXorTemp = 0;
+ 262   1        gc_MainRotateNewKey = 0;
+ 263   1        gc_MainRotateDebounceCount = 0;
+ 264   1      
+ 265   1        gc_MicRotateOldKey = 0;
+ 266   1        gc_MicRotateXorTemp = 0;
+ 267   1        gc_MicRotateNewKey = 0;
+ 268   1        gc_MicRotateDebounceCount = 0;
+ 269   1      //=======================================================
+ 270   1        gc_MainRotateOldKey = P0 & 0x03;//需修改 原0x03
+ 271   1        gc_MainRotateOldKey = P0 & 0x03;//需修改 原0x03
+ 272   1        gc_MainRotateOldKey = P0 & 0x03;//需修改 原0x03
+ 273   1      
+ 274   1        //~DD,240809,Orig
+ 275   1          /**
+ 276   1          gc_MicRotateOldKey = P0 & 0x0c;//需修改 原0x0c
+ 277   1        gc_MicRotateOldKey = P0 & 0x0c;//需修改 原0x0c
+ 278   1        gc_MicRotateOldKey = P0 & 0x0c;//需修改 原0x0c
+ 279   1          **/
+ 280   1        gc_MicRotateOldKey = (P1 & 0xc0)>>4;//需修改 原0xc0 -->simu:0x0c    //~DA,240809
+ 281   1        gc_MicRotateOldKey = (P1 & 0xc0)>>4;//需修改 原0xc0 -->simu:0x0c    //~DA,240809
+ 282   1        gc_MicRotateOldKey = (P1 & 0xc0)>>4;//需修改 原0xc0 -->simu:0x0c    //~DA,240809
+ 283   1      }//End of GetFirstRotateKeyData(void)
+ 284          //===========================================================
+ 285          
+ 286          
+ 287          
+ 288          
+ 289          
+ 290          
+ 291          
+ 292          
+ 293          
+ 294          
+ 295          
+ 296          
+ 297          
+ 298          
+ 299          
+ 300          
+ 301          
+ 302          
+ 303          
+C51 COMPILER V9.60.7.0   FASTKEY                                                           12/24/2025 13:49:45 PAGE 6   
+
+ 304          
+ 305          
+ 306          
+ 307          
+ 308          
+ 309          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    711    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     21    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

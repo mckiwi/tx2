@@ -1,0 +1,159 @@
+C51 COMPILER V9.60.7.0   RS232                                                             12/24/2025 13:49:45 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RS232
+OBJECT MODULE PLACED IN RS232.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE RS232.C LARGE OMF2 OPTIMIZE(0,SPEED) BROWSE DEBUG TABS(2)
+
+line level    source
+
+   1          #include "REG_MPC82G516.H"
+   2          #include "userdefine.h"
+   3          
+   4          unsigned char RS232_First_Code, RS232_RW_Code, RS232_Addr_Code, RS232_Data_Code, RS232_Last_Code;
+   5          
+   6          //--- for UART Command ----------------
+   7          unsigned char UART_RX_DATA = 0;
+   8          unsigned char UART_STATUS = 0; //0:Standby, 1:Command input, 2:Command ready.
+   9          unsigned char UART_INDEX = 0;
+  10          unsigned char UART_RX_BUF[5] = {0, 0, 0, 0, 0};
+  11          void UART_Variable_Reset(void);
+  12          void UART_init(void);  //UART啟始程式
+  13          void UART_Send(U8 Send_Data);
+  14          
+  15          //--------------------------------------
+  16          
+  17          void UART_main (void)//開始處理UART指令 
+  18          {
+  19   1        RS232_First_Code = UART_RX_BUF[0];
+  20   1        RS232_RW_Code = UART_RX_BUF[1];
+  21   1        RS232_Addr_Code = UART_RX_BUF[2];
+  22   1        RS232_Data_Code = UART_RX_BUF[3];
+  23   1        RS232_Last_Code = UART_RX_BUF[4];
+  24   1      }//end of UART_main (void)
+  25          
+  26          void UART_Interrupt() interrupt 4 
+  27          {
+  28   1        U8 SEND_INDEX;
+  29   1        if(RI) // RX interrupt
+  30   1        {                        /* if reception occur */
+  31   2      //    RI = 0;                /* clear reception flag for next reception */
+  32   2      //      UART_RX_DATA = SBUF;   /* Read receive data */
+  33   2      
+  34   2          RI = Low;
+  35   2            UART_RX_DATA = SBUF;
+  36   2          if((UART_STATUS == 0) && (UART_INDEX == 0))
+  37   2          {
+  38   3            if(UART_RX_DATA == RS232_Leader_Code)
+  39   3            {
+  40   4              UART_RX_BUF[0] = UART_RX_DATA;
+  41   4              UART_INDEX = 1;
+  42   4              UART_STATUS = 1;
+  43   4              SEND_INDEX = 0;
+  44   4            }
+  45   3            else{UART_Variable_Reset();}
+  46   3          }
+  47   2          else if(UART_INDEX == 1)
+  48   2          {
+  49   3            if((UART_RX_DATA == RS232_Write) || (UART_RX_DATA == RS232_Read)) 
+  50   3            {
+  51   4              UART_RX_BUF[1] = UART_RX_DATA;
+  52   4              UART_INDEX = 2;
+  53   4              SEND_INDEX = 1;
+  54   4            }
+  55   3            else{UART_Variable_Reset();}
+C51 COMPILER V9.60.7.0   RS232                                                             12/24/2025 13:49:45 PAGE 2   
+
+  56   3          }
+  57   2          else if(UART_INDEX == 2)
+  58   2          {
+  59   3            if((UART_RX_BUF[1] == RS232_Write) || (UART_RX_BUF[1] == RS232_Read)) 
+  60   3            {
+  61   4              UART_RX_BUF[2] = UART_RX_DATA;
+  62   4              UART_INDEX = 3;
+  63   4              SEND_INDEX = 2;
+  64   4            }
+  65   3            else{UART_Variable_Reset();}
+  66   3          }
+  67   2          else if(UART_INDEX == 3)
+  68   2          {
+  69   3            if((UART_RX_BUF[1] == RS232_Write) || (UART_RX_BUF[1] == RS232_Read)) 
+  70   3            {
+  71   4              UART_RX_BUF[3] = UART_RX_DATA;
+  72   4              UART_INDEX = 4;
+  73   4              SEND_INDEX = 3;
+  74   4            }
+  75   3            else{UART_Variable_Reset();}
+  76   3          }
+  77   2          else if(UART_INDEX == 4)
+  78   2          {
+  79   3            if(UART_RX_DATA == RS232_End_Code) 
+  80   3            {
+  81   4              UART_RX_BUF[4] = UART_RX_DATA;
+  82   4              UART_STATUS = 2;
+  83   4              SEND_INDEX = 4;
+  84   4            }
+  85   3            else{UART_Variable_Reset();}
+  86   3          }
+  87   2        }//end of RX interrupt
+  88   1      //UART_Send(UART_RX_BUF[SEND_INDEX]);
+  89   1      }//end of UART_Interrupt() interrupt 4
+  90          
+  91          void UART_init(void)  //UART啟始程式
+  92          {
+  93   1        AUXR2 |= 0x40 ;
+  94   1        SCON = 0x50;//Set UART Mode 1
+  95   1        PCON = 0x80;//Set SMOD = 1 (Double Baud rate)
+  96   1        TMOD = TMOD | 0x20 ;//Set Timer1 Mode 2
+  97   1        TH1 = TL1 = 256-(((2 * Xtal_Freq)/Baud_Rate)/32) ;
+  98   1      
+  99   1        TR1 = 1;                // Timer 1 run //
+ 100   1        ES = 1;                 // Enable serial interrupt  //
+ 101   1        EA = 1;                 // Enable global interrupt //
+ 102   1      }//end of UART_init(void)  //UART啟始程式
+ 103          
+ 104          void UART_Variable_Reset(void)
+ 105          {
+ 106   1        char i = 0;
+ 107   1        UART_STATUS = 0;
+ 108   1        UART_INDEX = 0;
+ 109   1        UART_RX_DATA = 0;
+ 110   1        for(i = 0; i < 5; i++)
+ 111   1        {
+ 112   2          UART_RX_BUF[i] = 0;
+ 113   2        }
+ 114   1        RS232_First_Code = 0x00;
+ 115   1        RS232_RW_Code = 0x00;
+ 116   1        RS232_Addr_Code = 0x00;
+ 117   1        RS232_Data_Code = 0x00;
+C51 COMPILER V9.60.7.0   RS232                                                             12/24/2025 13:49:45 PAGE 3   
+
+ 118   1        RS232_Last_Code = 0x00;
+ 119   1      }//end of UART_Variable_Reset(void)
+ 120          
+ 121          //#ifdef DEBUG_RS232
+ 122          void UART_Send(U8 Send_Data)
+ 123          {
+ 124   1        SBUF = Send_Data;  
+ 125   1        while(~TI);
+ 126   1        TI = 0;
+ 127   1      }//end of UART_Send(U8 Send_Data)
+ 128          //#endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    474    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     16    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,531 @@
+C51 COMPILER V9.60.7.0   IOEXP6524                                                         12/24/2025 13:49:45 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE IOEXP6524
+OBJECT MODULE PLACED IN IOEXP6524.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE IOEXP6524.c LARGE OMF2 OPTIMIZE(0,SPEED) BROWSE DEBUG TABS(2)
+
+line level    source
+
+   1          //////////////////////////////////////////////////////////////
+   2          //;
+   3          //; IOEXP6524.c
+   4          //;  For new IO Expander NXP
+   5          //;  TDF,202205 added, Dennis
+   6          //;
+   7          //////////////////////////////////////////////////////////////
+   8          
+   9          #include "REG_MPC82G516.H"
+  10          #include "userdefine.h"
+  11          
+  12          #define SET_IO_SCL  ioSCL = 1
+  13          #define CLR_IO_SCL  ioSCL = 0
+  14          #define SET_IO_SDA  ioSDA = 1
+  15          #define CLR_IO_SDA  ioSDA = 0
+  16          
+  17          #define IO_SDA_OUT  ioSDA = 0   
+  18          #define IO_SDA_IN   ioSDA = 1
+  19          
+  20          //
+  21          void  ioWriteOneByte(U8 expIOAddr, U8 IICSUB_Address, U8 IIC_Data); //~DA,240807
+  22          U8    ioReadOneByte(U8 expIOAddr, U8 IICSUB_Address); //~DA,240807
+  23          
+  24          void  ioSTART(void);
+  25          void  ioSTOP(void);
+  26          void  ioCSS_Wait(U16 tt);
+  27          void  ioAck(U8 ans);
+  28          U8    ioCheckAck(void);
+  29          
+  30          void  ioWriteByte(U8 I2cData);
+  31          U8    ioReadByte(void);
+  32          void  ioioSendStr(U8 IIC_Address, U8 IIC_Data);
+  33          void  ioioReadStr(U8 IIC_Address, U8 IIC_Data);
+  34          
+  35          //:D,A
+  36          void  ioWrite3Ports(U8 *I2cDataPorts);  //~DA,240809
+  37          void  ioWrite2Ports(U8 *I2cDataPorts, U8 index);  //~DA,240809
+  38          void  ioWrite1Ports(U8 *I2cDataPorts, U8 index);  //~DA,240809  
+  39          void  ioWriteThreePorts(U8 expIOAddr, U8 IICSUB_Address, U8 *I2cDataPorts); //~DA,240809
+  40          void  ioWriteTwoPorts(U8 expIOAddr, U8 IICSUB_Address, U8 *I2cDataPorts, U8 index); //~DA,240809
+  41          void  ioWriteOnePorts(U8 expIOAddr, U8 IICSUB_Address, U8 *I2cDataPorts, U8 index); //~DA,240809
+  42          void  initIOPorts(U8 expICNum); //~DA,240807
+  43          
+  44          
+  45          
+  46          //~DA,240807
+  47          volatile U8 IOPORTS_DATBK[2][3]={0};
+  48          
+  49          //---------------------------------------------------------------------------------
+  50          //Start 
+  51          //---------------------------------------------------------------------------------
+  52          void ioSTART(void)
+  53          {
+  54   1        SET_IO_SDA;
+  55   1        SET_IO_SCL;
+C51 COMPILER V9.60.7.0   IOEXP6524                                                         12/24/2025 13:49:45 PAGE 2   
+
+  56   1        CLR_IO_SDA;
+  57   1        CLR_IO_SCL;
+  58   1      }//End of ioSTART(void)
+  59          
+  60          //---------------------------------------------------------------------------------
+  61          //Stop
+  62          //---------------------------------------------------------------------------------
+  63          void ioSTOP(void)
+  64          {
+  65   1        CLR_IO_SCL;
+  66   1        CLR_IO_SDA;
+  67   1        SET_IO_SCL;
+  68   1        SET_IO_SDA;
+  69   1      }//End of ioSTOP(void)
+  70          
+  71          //---------------------------------------------------------------------------------
+  72          //Wait 
+  73          //---------------------------------------------------------------------------------
+  74          void ioCSS_Wait(U16 tt)
+  75          {
+  76   1        while(tt > 0)
+  77   1        {
+  78   2          tt--;
+  79   2        }
+  80   1      }//End of ioCSS_Wait(U16 tt)
+  81          
+  82          //---------------------------------------------------------------------------------
+  83          //Check ACK
+  84          //---------------------------------------------------------------------------------
+  85          U8 ioCheckAck(void)
+  86          {
+  87   1        //:D  U8 i;
+  88   1        SET_IO_SDA; 
+  89   1        //ioCSS_Wait(10);
+  90   1        ioCSS_Wait(4);
+  91   1        SET_IO_SCL;
+  92   1        //ioCSS_Wait(10);  
+  93   1        ioCSS_Wait(2); 
+  94   1        //***:D i = 0;  
+  95   1        //***:D while((ioSDA) && (i < 250)) i++;
+  96   1        if(ioSDA) IOEXP_ERR = 1;          //i > 249) IOEXP_ERR = 1;
+  97   1        else IOEXP_ERR = 0;
+  98   1        IOEXP_ERR = !ioSDA;       //:Dennis,M
+  99   1        CLR_IO_SCL;
+ 100   1        ioCSS_Wait(2);
+ 101   1        return 1;
+ 102   1      }//End of U8 ioCheckAck(void)
+ 103          
+ 104          
+ 105          /***
+ 106          //~D,A
+ 107          //---------------------------------------------------------------------------------
+ 108          //No ACK
+ 109          //---------------------------------------------------------------------------------
+ 110          void NoAckIO() 
+ 111          {
+ 112            SET_IO_SDA;
+ 113            SET_IO_SCL;
+ 114            CLR_IO_SCL;
+ 115          }//End of NoAck()
+ 116          ***/
+ 117          
+C51 COMPILER V9.60.7.0   IOEXP6524                                                         12/24/2025 13:49:45 PAGE 3   
+
+ 118          
+ 119          //---------------------------------------------------------------------------------
+ 120          //Write Byte
+ 121          //---------------------------------------------------------------------------------
+ 122          void ioWriteByte(U8 I2cData)
+ 123          {
+ 124   1        U8 Bits;
+ 125   1        
+ 126   1        for(Bits = 0; Bits < 8; Bits++)
+ 127   1        {
+ 128   2          if(I2cData & 0x80)
+ 129   2          {
+ 130   3            SET_IO_SDA;
+ 131   3          }
+ 132   2          else
+ 133   2          {
+ 134   3            CLR_IO_SDA;
+ 135   3          }
+ 136   2          SET_IO_SCL;
+ 137   2          ioCSS_Wait(2);
+ 138   2          CLR_IO_SCL;
+ 139   2          ioCSS_Wait(2);    
+ 140   2          I2cData <<= 1;
+ 141   2        }
+ 142   1      }//End of ioWriteByte(U8 I2cData)
+ 143          
+ 144          
+ 145          
+ 146          //~DA,240809,
+ 147          //:Dennis, ioWritePorts
+ 148          ////////////////////////////////////////////////////////////////////////////////////////////////////////
+ 149          //---------------------------------------------------------------------------------
+ 150          //Write all three Ports
+ 151          //---------------------------------------------------------------------------------
+ 152          void ioWrite3Ports(U8 *I2cDataPorts)
+ 153          {
+ 154   1        U8 Bits;
+ 155   1        U8 index,cc;
+ 156   1        
+ 157   1        index = 0;  //3Ports: enforce to 0, no matter what index is come in.
+ 158   1        cc = 0;
+ 159   1        for(Bits = 0; Bits < 24; Bits++)
+ 160   1        {
+ 161   2          if(*(I2cDataPorts + index) & 0x80)
+ 162   2          {
+ 163   3            SET_IO_SDA;
+ 164   3          }
+ 165   2          else
+ 166   2          {
+ 167   3            CLR_IO_SDA;
+ 168   3          }
+ 169   2          SET_IO_SCL;
+ 170   2          ioCSS_Wait(5);
+ 171   2          CLR_IO_SCL;
+ 172   2          *(I2cDataPorts + index) <<= 1;
+ 173   2          cc++;
+ 174   2          if (cc >= 8) {
+ 175   3            ioCheckAck();     //:D,Assert ACK     
+ 176   3            cc = 0;
+ 177   3            index ++;     
+ 178   3          }
+ 179   2        }
+C51 COMPILER V9.60.7.0   IOEXP6524                                                         12/24/2025 13:49:45 PAGE 4   
+
+ 180   1      }//End of ioWrite3Ports(U8 *I2cDataPorts)
+ 181          
+ 182          
+ 183          
+ 184          //~D,A
+ 185          //---------------------------------------------------------------------------------
+ 186          //Write all three Ports
+ 187          //---------------------------------------------------------------------------------
+ 188          void ioWrite2Ports(U8 *I2cDataPorts, U8 index)
+ 189          {
+ 190   1        U8 Bits;
+ 191   1        //U8 index,cc;
+ 192   1        U8 cc;
+ 193   1        
+ 194   1        //*** index = 1;      //skip P0,Start from P1
+ 195   1        if (index > 1)
+ 196   1          return;         //error
+ 197   1        //
+ 198   1        cc = 0;
+ 199   1        for(Bits = 0; Bits < 16; Bits++)
+ 200   1        {
+ 201   2          if(*(I2cDataPorts + index) & 0x80)
+ 202   2          {
+ 203   3            SET_IO_SDA;
+ 204   3          }
+ 205   2          else
+ 206   2          {
+ 207   3            CLR_IO_SDA;
+ 208   3          }
+ 209   2          SET_IO_SCL;
+ 210   2          ioCSS_Wait(5);
+ 211   2          CLR_IO_SCL;
+ 212   2          *(I2cDataPorts + index) <<= 1;
+ 213   2          cc++;
+ 214   2          if (cc >= 8) {
+ 215   3            ioCheckAck();     //:D,Assert ACK
+ 216   3            cc = 0;
+ 217   3            index ++;     
+ 218   3          }
+ 219   2        }
+ 220   1      }//End of ioWrite2Ports(U8 *I2cDataPorts)
+ 221          
+ 222          
+ 223          //~D,A
+ 224          //---------------------------------------------------------------------------------
+ 225          //Write all three Ports
+ 226          //---------------------------------------------------------------------------------
+ 227          void ioWrite1Ports(U8 *I2cDataPorts, U8 index)
+ 228          {
+ 229   1        U8 Bits;
+ 230   1        //U8 index,cc;
+ 231   1        U8 cc;
+ 232   1        
+ 233   1        //
+ 234   1        //index = 1;      //skip P0,Start from P1
+ 235   1        if (index > 2)
+ 236   1          return;       //error
+ 237   1        //  
+ 238   1        cc = 0;
+ 239   1        for(Bits = 0; Bits < 8; Bits++)
+ 240   1        {
+ 241   2          if(*(I2cDataPorts + index) & 0x80)
+C51 COMPILER V9.60.7.0   IOEXP6524                                                         12/24/2025 13:49:45 PAGE 5   
+
+ 242   2          {
+ 243   3            SET_IO_SDA;
+ 244   3          }
+ 245   2          else
+ 246   2          {
+ 247   3            CLR_IO_SDA;
+ 248   3          }
+ 249   2          SET_IO_SCL;
+ 250   2          ioCSS_Wait(5);
+ 251   2          CLR_IO_SCL;
+ 252   2          *(I2cDataPorts + index) <<= 1;
+ 253   2          cc++;
+ 254   2          if (cc >= 8) {
+ 255   3            ioCheckAck();     //:D,Assert ACK
+ 256   3            cc = 0;
+ 257   3            index ++;     
+ 258   3          }
+ 259   2        }
+ 260   1      }//End of ioWrite2Ports(U8 *I2cDataPorts)
+ 261          
+ 262          
+ 263          //---------------------------------------------------------------------------------
+ 264          //Write three Ports
+ 265          //---------------------------------------------------------------------------------
+ 266          void ioWriteThreePorts(U8 expIOAddr, U8 IICSUB_Address, U8 *I2cDataPorts)
+ 267          {
+ 268   1        ioSTART();
+ 269   1        ioWriteByte(expIOAddr);   //~DA,240807
+ 270   1        if(ioCheckAck()) ioWriteByte(IICSUB_Address);     //subADDR, cmd
+ 271   1        if(ioCheckAck()) ioWrite3Ports(I2cDataPorts);   //datas 3 ports, index=0
+ 272   1        if(ioCheckAck()) ioSTOP();
+ 273   1      //*** */  delay10us(500);       //5ms(500)
+ 274   1      }//End of ioWriteThreePorts(U8 IIC_Address, U8 cmd, U8 *I2cDataPorts)
+ 275          
+ 276          
+ 277          //~D,A
+ 278          //---------------------------------------------------------------------------------
+ 279          //Write two Ports
+ 280          //---------------------------------------------------------------------------------
+ 281          void ioWriteTwoPorts(U8 expIOAddr, U8 IICSUB_Address, U8 *I2cDataPorts, U8 index)
+ 282          {
+ 283   1        
+ 284   1        ioSTART();
+ 285   1        ioWriteByte(expIOAddr);   //~DA,240807
+ 286   1        if(ioCheckAck()) ioWriteByte(IICSUB_Address);   //subADDR, cmd
+ 287   1        if(ioCheckAck()) ioWrite2Ports(I2cDataPorts, index);    //datas, 2 ports
+ 288   1        if(ioCheckAck()) ioSTOP();
+ 289   1      //*** */  delay10us(500);       //5ms(500)
+ 290   1      }//End of ioWriteTwoPorts(U8 IIC_Address, U8 cmd, U8 *I2cDataPorts)
+ 291          
+ 292          
+ 293          //~DA,240809,Dennis
+ 294          //---------------------------------------------------------------------------------
+ 295          //Write One Ports
+ 296          //---------------------------------------------------------------------------------
+ 297          void ioWriteOnePorts(U8 expIOAddr, U8 IICSUB_Address, U8 *I2cDataPorts, U8 index)
+ 298          {
+ 299   1        
+ 300   1        ioSTART();
+ 301   1        ioWriteByte(expIOAddr);   //~DA,240807
+ 302   1        if(ioCheckAck()) ioWriteByte(IICSUB_Address);   //subADDR, cmd
+ 303   1        if(ioCheckAck()) ioWrite1Ports(I2cDataPorts, index);    //datas, 2 ports
+C51 COMPILER V9.60.7.0   IOEXP6524                                                         12/24/2025 13:49:45 PAGE 6   
+
+ 304   1        if(ioCheckAck()) ioSTOP();
+ 305   1      //*** */  delay10us(500);       //5ms(500)
+ 306   1      }//End of ioWriteOnePorts(U8 IIC_Address, U8 cmd, U8 *I2cDataPorts)
+ 307          
+ 308          
+ 309          //~DA,240807
+ 310          //---------------------------------------------------------------------------------
+ 311          // init IOPorts - :Dennis
+ 312          //   expICNum: IOEXP_FUNC, IOEXP_SRC
+ 313          //---------------------------------------------------------------------------------
+ 314          void initIOPorts(U8 expICNum)
+ 315          {
+ 316   1        U8 expIOAddr;
+ 317   1        U8 IOPORTS_DAT[2][3];   //~DA,240813  
+ 318   1      
+ 319   1        if (expICNum > 1)
+ 320   1          return;       //NA
+ 321   1        if (expICNum == 0)
+ 322   1          expIOAddr = IOEXP1_ADDR;
+ 323   1        else
+ 324   1          expIOAddr = IOEXP2_ADDR;
+ 325   1      
+ 326   1        bXIOLock = High;    //lock
+ 327   1      
+ 328   1      
+ 329   1        #if 0 //~DA,240918, moved to below
+                  //[54: Interrupt mask]: 1=INT is masked, 0=active
+                  IOPORTS_DAT[expICNum][0] = 0xFF;
+                  IOPORTS_DAT[expICNum][1] = 0xFF;
+                  IOPORTS_DAT[expICNum][2] = 0xFF;  
+                  ioWriteThreePorts(expIOAddr, 0x54, &IOPORTS_DAT[expICNum][0]);  
+                  
+                  //[68: Interrupt clear]: 1=INT is clear
+                  IOPORTS_DAT[expICNum][0] = 0xFF;
+                  IOPORTS_DAT[expICNum][1] = 0xFF;
+                  IOPORTS_DAT[expICNum][2] = 0xFF;  
+                  ioWriteThreePorts(expIOAddr, 0x68, &IOPORTS_DAT[expICNum][0]);
+                #endif
+ 342   1      
+ 343   1        //[5C:Output Port Configure via Port]: 0=Push pull, 1=Open drain
+ 344   1        ioWriteOneByte(expIOAddr, 0x5C, 0x00);      //Port0,1,2 = all Push pull   
+ 345   1      
+ 346   1        #if 0
+                //~DA,240918    
+                  //[70:Output Port Configure via PINs]: 0=Push pull, 1=Open drain
+                  IOPORTS_DAT[expICNum][0] = 0x00;  //*** 0x1F;       //0x00; -- 0x0C set 0 -->0x80 set to reverse to Opendrai
+             -n
+                  IOPORTS_DAT[expICNum][1] = 0x00;
+                  IOPORTS_DAT[expICNum][2] = 0x00;  
+                  ioWriteThreePorts(expIOAddr, 0x70, &IOPORTS_DAT[expICNum][0]);
+                #endif  
+ 354   1      
+ 355   1        //[0C:Configuration]: p1,p2=(0=all output), p0=(00001111=0x0F)
+ 356   1        IOPORTS_DAT[expICNum][0] = 0x00;  //*** 0x0F;
+ 357   1        IOPORTS_DAT[expICNum][1] = 0x00;
+ 358   1        IOPORTS_DAT[expICNum][2] = 0x00;  
+ 359   1        ioWriteThreePorts(expIOAddr, 0x0C, &IOPORTS_DAT[expICNum][0]);
+ 360   1      
+ 361   1        /***
+ 362   1          //[4C:Configuration]: set 1 to enable internal pull up/down
+ 363   1          IOPORTS_DAT[expICNum][0] = 0x00;  //0xFF;
+ 364   1          IOPORTS_DAT[expICNum][1] = 0x00;  //0xFF;
+C51 COMPILER V9.60.7.0   IOEXP6524                                                         12/24/2025 13:49:45 PAGE 7   
+
+ 365   1          IOPORTS_DAT[expICNum][2] = 0x00;  //0xFF; 
+ 366   1          ioWriteThreePorts(expIOAddr, 0x4C, &IOPORTS_DAT[expICNum][0]);
+ 367   1      
+ 368   1          //[50:Configuration]: set pull up=1/down=0, win above 0x4C
+ 369   1          IOPORTS_DAT[expICNum][0] = 0xFF;
+ 370   1          IOPORTS_DAT[expICNum][1] = 0xFF;
+ 371   1          IOPORTS_DAT[expICNum][2] = 0xFF;  
+ 372   1          ioWriteThreePorts(expIOAddr, 0x50, &IOPORTS_DAT[expICNum][0]);  
+ 373   1        ***/
+ 374   1      
+ 375   1        //: 
+ 376   1        if (toInit)
+ 377   1        { 
+ 378   2          //~DA,240812,
+ 379   2          //Init IO ports
+ 380   2          switch(expICNum)
+ 381   2          {
+ 382   3            case 0: 
+ 383   3              //Funcs
+ 384   3              //***240912       delay10us(200);       //2ms
+ 385   3              IOPORTS_DAT[0][0] = 0x0B; //STB_CTL=OFF(0x08),MUTE_CTL=OFF(0x00),SPB_CTL=OFF(0x02), SPA_CTL=OFF(0x01):
+             - 0x0B
+ 386   3              IOPORTS_DAT[0][1] = 0xDE;  //HICUT_CTL=OFF(0x80),LOWCUT_CTL_OFF(0x40),LOUD_CTL=OFF(0x00),STECHO_CTL=OF
+             -F(0x10),ECHO_CTL=OFF)(0x08),REV_CTL=OFF(0x04),ANTI_CTL=OFF(0x02): 0xDE 
+ 387   3              IOPORTS_DAT[0][2] = 0x00;  //SPA_LED(0x00),SPB_LED(0x00),STECHO_LED(0x00),ECHO_LED(0x00),REV_LED(0x00)
+             -,HICUT_LED(0x00),LOWCUT_LED(0x00),ANTI_LED(0x00): 0x00
+ 388   3              ioWriteThreePorts(expIOAddr, 0x04, &IOPORTS_DAT[expICNum][0]);
+ 389   3              break;
+ 390   3            case 1:
+ 391   3              //Sources
+ 392   3              //***240912       delay10us(200);       //2ms
+ 393   3              IOPORTS_DAT[1][0] = 0x00; //BT_SPDIF_CTL(0x00),DISP_CTL(0x00): 0x00
+ 394   3              IOPORTS_DAT[1][1] = 0x20; //STB_LED(0x20),CH_SEL(0x00),PROT_RST(0x00): 0x20  
+ 395   3              IOPORTS_DAT[1][2] = 0x00; //KTV_LED(0x00),DVD_LED(0x00),AUX_LED(0x00),BT_LED(0x00),COAX_LED(0x00),OPT1
+             -_LED(0x00),OPT2_LED(0x00),LOUD_LED(0x00): 0x00
+ 396   3              ioWriteThreePorts(expIOAddr, 0x04, &IOPORTS_DAT[expICNum][0]);
+ 397   3              break;
+ 398   3            default:
+ 399   3              break;
+ 400   3          }
+ 401   2        }
+ 402   1      
+ 403   1      
+ 404   1      #if 1 //~DA,240918, moved here
+ 405   1        //[54: Interrupt mask]: 1=INT is masked, 0=active
+ 406   1        IOPORTS_DAT[expICNum][0] = 0xFF;
+ 407   1        IOPORTS_DAT[expICNum][1] = 0xFF;
+ 408   1        IOPORTS_DAT[expICNum][2] = 0xFF;  
+ 409   1        ioWriteThreePorts(expIOAddr, 0x54, &IOPORTS_DAT[expICNum][0]);  
+ 410   1        
+ 411   1        //[68: Interrupt clear]: 1=INT is clear
+ 412   1        IOPORTS_DAT[expICNum][0] = 0xFF;
+ 413   1        IOPORTS_DAT[expICNum][1] = 0xFF;
+ 414   1        IOPORTS_DAT[expICNum][2] = 0xFF;  
+ 415   1        ioWriteThreePorts(expIOAddr, 0x68, &IOPORTS_DAT[expICNum][0]);
+ 416   1      #endif
+ 417   1      
+ 418   1        bXIOLock = Low;     //released
+ 419   1        //
+ 420   1        //***240912   delay10us(500);       //5ms
+ 421   1      }
+ 422          
+C51 COMPILER V9.60.7.0   IOEXP6524                                                         12/24/2025 13:49:45 PAGE 8   
+
+ 423          
+ 424          
+ 425          ////////////////////////////////////////////////////////////////////////////////////////////////////////
+ 426          
+ 427          /***
+ 428          //~D,A
+ 429          //---------------------------------------------------------------------------------
+ 430          //READ Byte
+ 431          //---------------------------------------------------------------------------------
+ 432          U8 ioReadByte(void)
+ 433          {
+ 434            U8  I2cData = 0, Bits;
+ 435            for(Bits = 0; Bits < 8; Bits++)
+ 436            {
+ 437              SET_IO_SCL;
+ 438              I2cData = I2cData << 1;
+ 439              I2cData = I2cData | ((unsigned char)(ioSDA));
+ 440              CLR_IO_SCL;
+ 441            }
+ 442            return I2cData;
+ 443          }//End of U8 ioReadByte(void)
+ 444          ***/
+ 445          
+ 446          
+ 447          //---------------------------------------------------------------------------------
+ 448          //Write Data Function
+ 449          //---------------------------------------------------------------------------------
+ 450          void ioWriteOneByte(U8 expIOAddr, U8 IICSUB_Address, U8 IIC_Data)
+ 451          {
+ 452   1        ioSTART();
+ 453   1        //*** ioWriteByte(ADDR_PCAL6524_Write);
+ 454   1        ioWriteByte(expIOAddr);
+ 455   1        if(ioCheckAck()) ioWriteByte(IICSUB_Address);
+ 456   1        if(ioCheckAck()) ioWriteByte(IIC_Data);
+ 457   1        if(ioCheckAck()) ioSTOP();
+ 458   1      //*** */  delay10us(500);       //5ms 
+ 459   1      }//End of  ioWriteOneByte(U8 IIC_Address, U8 cmd, U8 IIC_Data)
+ 460          
+ 461          /***
+ 462          //~D,A
+ 463          //---------------------------------------------------------------------------------
+ 464          //READ DATA FUNCTION
+ 465          //---------------------------------------------------------------------------------
+ 466          U8 ioReadOneByte(U8 expIOAddr, U8 IICSUB_Address)
+ 467          {
+ 468            U8 x_Read_iic_Data;
+ 469            ioSTART();
+ 470            //*** ioWriteByte(ADDR_PCAL6524_Write);
+ 471            ioWriteByte(expIOAddr);
+ 472            if(ioCheckAck()) ioWriteByte(IICSUB_Address); 
+ 473            if(ioCheckAck()) ioSTART();
+ 474            //*** ioWriteByte(ADDR_PCAL6524_Read);
+ 475            ioWriteByte(expIOAddr+1);
+ 476            if(ioCheckAck()) x_Read_iic_Data = ioReadByte();
+ 477            NoAckIO();
+ 478            ioSTOP();
+ 479            // delay10us(500);        //5ms
+ 480            return x_Read_iic_Data;
+ 481          }//End of ioReadOneByte
+ 482          ***/
+ 483          
+
+C51 COMPILER V9.60.7.0   IOEXP6524                                                         12/24/2025 13:49:45 PAGE 9   
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1343    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     56    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

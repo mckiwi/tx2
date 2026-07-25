@@ -1,0 +1,262 @@
+C51 COMPILER V9.60.7.0   EEP24C04                                                          12/24/2025 13:49:45 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE EEP24C04
+OBJECT MODULE PLACED IN Eep24C04.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Eep24C04.c LARGE OMF2 OPTIMIZE(0,SPEED) BROWSE DEBUG TABS(2)
+
+line level    source
+
+   1          #include "REG_MPC82G516.H"
+   2          #include "userdefine.h"
+   3          
+   4          #define SET_IIC_SCL  IIC_SCL = 1
+   5          #define CLR_IIC_SCL  IIC_SCL = 0
+   6          #define SET_IIC_SDA  IIC_SDA = 1
+   7          #define CLR_IIC_SDA  IIC_SDA = 0
+   8          
+   9          #define   IIC_SDA_OUT IIC_SDA = 0   
+  10          #define   IIC_SDA_IN  IIC_SDA = 1
+  11          
+  12          #define EEPROM_24c04_Write  0xa0
+  13          #define EEPROM_24c04_Read   0xa1
+  14          
+  15          //:Dennis, Migrated
+  16          #define CT7302_Write        0x20
+  17          #define CT7302_Read         0x21
+  18              
+  19          void TDF24c04WriteOneByte(U8 IIC_Address, U8 IIC_Data);
+  20          U8 TDF24c04ReadOneByte(U8 IIC_Address);
+  21          
+  22          void iicSTART(void);
+  23          void iicSTOP(void);
+  24          void I2CSS_Wait(U16 tt);
+  25          void iicAck(U8 ans);
+  26          U8 iicCheckAck(void);
+  27          void iicWriteByte(U8 I2cData);
+  28          U8 iicReadByte(void);
+  29          void SendStr(U8 IIC_Address, U8 IIC_Data);
+  30          void ReadStr(U8 IIC_Address, U8 IIC_Data);
+  31          
+  32          //:Dennis, Migrated
+  33          void CT_7302_WriteOneByte(U8 IIC_Address, U8 IIC_Data);
+  34          void CT_7302_WriteTwoByte(U8 IIC_Address, U8 IIC_Data1, U8 IIC_Data2);
+  35          U8 CT_7302_ReadOneByte(U8 IIC_Address);
+  36          
+  37          
+  38          //---------------------------------------------------------------------------------
+  39          //Start 
+  40          //---------------------------------------------------------------------------------
+  41          void iicSTART(void)
+  42          {
+  43   1        SET_IIC_SDA;
+  44   1        SET_IIC_SCL;
+  45   1        I2CSS_Wait(2);  //~DA,240813,added! 
+  46   1        CLR_IIC_SDA;
+  47   1        I2CSS_Wait(2);  //~DA,240813,added! 
+  48   1        CLR_IIC_SCL;  
+  49   1      }//End of iicSTART(void)
+  50          
+  51          //---------------------------------------------------------------------------------
+  52          //Stop
+  53          //---------------------------------------------------------------------------------
+  54          void iicSTOP(void)
+  55          {
+C51 COMPILER V9.60.7.0   EEP24C04                                                          12/24/2025 13:49:45 PAGE 2   
+
+  56   1        CLR_IIC_SCL;
+  57   1        CLR_IIC_SDA;
+  58   1        I2CSS_Wait(2);  //~DA,240813,added!   
+  59   1        SET_IIC_SCL;
+  60   1        I2CSS_Wait(2);  //~DA,240813,added! 
+  61   1        SET_IIC_SDA;
+  62   1      }//End of iicSTOP(void)
+  63          
+  64          //---------------------------------------------------------------------------------
+  65          //Wait 
+  66          //---------------------------------------------------------------------------------
+  67          void I2CSS_Wait(U16 tt)
+  68          {
+  69   1        while(tt > 0)
+  70   1        {
+  71   2          tt--;
+  72   2        }
+  73   1      }//End of I2CSS_Wait(U16 tt)
+  74          
+  75          //---------------------------------------------------------------------------------
+  76          //Check ACK
+  77          //---------------------------------------------------------------------------------
+  78          U8 iicCheckAck(void)
+  79          {
+  80   1        U8 i = 0;
+  81   1        SET_IIC_SDA; 
+  82   1        I2CSS_Wait(10);
+  83   1        SET_IIC_SCL;
+  84   1        I2CSS_Wait(10);        
+  85   1        while((IIC_SDA) && (i < 250)) i++;
+  86   1      //  while(IIC_SDA) errtime--;
+  87   1        CLR_IIC_SCL;
+  88   1        I2CSS_Wait(2);
+  89   1        return 1;
+  90   1      }//End of U8 iicCheckAck(void)
+  91          
+  92          //---------------------------------------------------------------------------------
+  93          //No ACK
+  94          //---------------------------------------------------------------------------------
+  95          
+  96          void NoAck() 
+  97          {
+  98   1        SET_IIC_SDA;
+  99   1        SET_IIC_SCL;
+ 100   1        //*** I2CSS_Wait(2);  //~DA,240813,added!
+ 101   1        CLR_IIC_SCL;
+ 102   1        //*** I2CSS_Wait(2);  //~DA,240813,added! 
+ 103   1      }//End of NoAck()
+ 104          
+ 105          //---------------------------------------------------------------------------------
+ 106          //Write Byte
+ 107          //---------------------------------------------------------------------------------
+ 108          void iicWriteByte(U8 I2cData)
+ 109          {
+ 110   1        U8 Bits;
+ 111   1        
+ 112   1        for(Bits = 0; Bits < 8; Bits++)
+ 113   1        {
+ 114   2          if(I2cData & 0x80)
+ 115   2          {
+ 116   3            SET_IIC_SDA;
+ 117   3          }
+C51 COMPILER V9.60.7.0   EEP24C04                                                          12/24/2025 13:49:45 PAGE 3   
+
+ 118   2          else
+ 119   2          {
+ 120   3            CLR_IIC_SDA;
+ 121   3          }
+ 122   2          SET_IIC_SCL;
+ 123   2          I2CSS_Wait(5);
+ 124   2          //*** I2CSS_Wait(2);  //~DA,240813  
+ 125   2          CLR_IIC_SCL;
+ 126   2          //*** I2CSS_Wait(2);  //~DA,240813,added!   
+ 127   2          I2cData <<= 1;
+ 128   2        }
+ 129   1      }//End of iicWriteByte(U8 I2cData)
+ 130          
+ 131          //---------------------------------------------------------------------------------
+ 132          //READ Byte
+ 133          //---------------------------------------------------------------------------------
+ 134          U8 iicReadByte(void)
+ 135          {
+ 136   1        U8  I2cData = 0, Bits;
+ 137   1        for(Bits = 0; Bits < 8; Bits++)
+ 138   1        {
+ 139   2          SET_IIC_SCL;
+ 140   2          I2cData = I2cData << 1;
+ 141   2          I2cData = I2cData | ((unsigned char)(IIC_SDA));
+ 142   2          //*** I2CSS_Wait(2);  //~DA,240813,added!
+ 143   2          CLR_IIC_SCL;
+ 144   2          //*** I2CSS_Wait(2);  //~DA,240813,added!   
+ 145   2        }
+ 146   1        return I2cData;
+ 147   1      }//End of U8 iicReadByte(void)
+ 148          
+ 149          //---------------------------------------------------------------------------------
+ 150          //Write Data Function
+ 151          //---------------------------------------------------------------------------------
+ 152          void TDF24c04WriteOneByte(U8 IIC_Address, U8 IIC_Data)
+ 153          {
+ 154   1        iicSTART();
+ 155   1        iicWriteByte(EEPROM_24c04_Write);
+ 156   1        if(iicCheckAck()) iicWriteByte(IIC_Address);
+ 157   1        if(iicCheckAck()) iicWriteByte(IIC_Data);
+ 158   1        if(iicCheckAck()) iicSTOP();
+ 159   1        T2delay1ms(8);//Write Cycle Time Must > 5ms
+ 160   1      }//End of TDF24c04WriteOneByte(U8 Device_Address, U8 IIC_Address, U8 IIC_Data)
+ 161          
+ 162          //---------------------------------------------------------------------------------
+ 163          //READ DATA FUNCTION
+ 164          //---------------------------------------------------------------------------------
+ 165          U8 TDF24c04ReadOneByte(U8 IIC_Address)
+ 166          {
+ 167   1        U8 x_Read_iic_Data;
+ 168   1        iicSTART();
+ 169   1        iicWriteByte(EEPROM_24c04_Write);
+ 170   1        if(iicCheckAck()) iicWriteByte(IIC_Address);
+ 171   1        if(iicCheckAck()) iicSTART();
+ 172   1        iicWriteByte(EEPROM_24c04_Read);
+ 173   1        if(iicCheckAck()) x_Read_iic_Data = iicReadByte();
+ 174   1        NoAck();
+ 175   1        iicSTOP();
+ 176   1        return x_Read_iic_Data;
+ 177   1      //  T2delay1ms(8);//Write Cycle Time > 5ms
+ 178   1      }//End of TDF24c04ReadOneByte
+ 179          
+C51 COMPILER V9.60.7.0   EEP24C04                                                          12/24/2025 13:49:45 PAGE 4   
+
+ 180          
+ 181          
+ 182          //:Dennis, Migrated ----------------------------------------------------------------
+ 183          void CT_7302_WriteOneByte(U8 IIC_Index_Code, U8 IIC_Data)
+ 184          {
+ 185   1        iicSTART();
+ 186   1        iicWriteByte(CT7302_Write);
+ 187   1        if(iicCheckAck()) iicWriteByte(IIC_Index_Code);
+ 188   1        if(iicCheckAck()) iicWriteByte(IIC_Data);
+ 189   1        if(iicCheckAck()) iicSTOP();
+ 190   1        T2delay1ms(8);//Write Cycle Time Must > 5ms
+ 191   1      }//End of TDF24c04WriteOneByte(U8 Device_Address, U8 IIC_Address, U8 IIC_Data)
+ 192          
+ 193          /*
+ 194          void CT_7302_WriteTwoByte(U8 IIC_Index_Code, U8 IIC_Data1, U8 IIC_Data2)
+ 195          {
+ 196            iicSTART();
+ 197            iicWriteByte(CT7301C_Write);
+ 198            if(iicCheckAck()) iicWriteByte(IIC_Index_Code);
+ 199            if(iicCheckAck()) iicWriteByte(IIC_Data1);
+ 200            if(iicCheckAck()) iicWriteByte(IIC_Data2);
+ 201            if(iicCheckAck()) iicSTOP();
+ 202          //  T2delay1ms(8);//Write Cycle Time Must > 5ms
+ 203          }//End of TDF24c04WriteOneByte(U8 Device_Address, U8 IIC_Address, U8 IIC_Data)
+ 204          */
+ 205          
+ 206          /*
+ 207          U8 CT_7302_ReadOneByte(U8 IIC_Address)
+ 208          {
+ 209            U8 x_Read_iic_Data;
+ 210            iicSTART();
+ 211            iicWriteByte(CT7301C_Write);
+ 212            if(iicCheckAck()) iicWriteByte(IIC_Address);
+ 213            if(iicCheckAck()) iicSTART();
+ 214            iicWriteByte(CT7301C_Read);
+ 215            if(iicCheckAck()) x_Read_iic_Data = iicReadByte();
+ 216            NoAck();
+ 217            iicSTOP();
+ 218            return x_Read_iic_Data;
+ 219          //  T2delay1ms(8);//Write Cycle Time > 5ms
+ 220          }//End of TDF24c04ReadOneByte
+ 221          */
+ 222          //:------------------------------------------------------------------------------------
+ 223          
+ 224          
+ 225          
+ 226          //__EOF
+ 227          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    444    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     13    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+C51 COMPILER V9.60.7.0   EEP24C04                                                          12/24/2025 13:49:45 PAGE 5   
+
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

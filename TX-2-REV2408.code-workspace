@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"TX-2.C": "cpp",
+			"ScanKeyAction.C": "cpp",
+			"RS232.C": "cpp",
+			"PWM.C": "cpp"
+		}
+	}
+}

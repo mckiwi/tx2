@@ -1,0 +1,99 @@
+C51 COMPILER V9.60.7.0   NJW1159                                                           12/24/2025 13:49:45 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE NJW1159
+OBJECT MODULE PLACED IN NJW1159.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE NJW1159.C LARGE OMF2 OPTIMIZE(0,SPEED) BROWSE DEBUG TABS(2)
+
+line level    source
+
+   1          #include "REG_MPC82G516.H"
+   2          #include "userdefine.h"
+   3          
+   4          void NJW1159SetData(U8 x_Volume, U8 x_Channel);
+   5          void NJW1159VolumeControlSet(U16 x_NjwTemp);
+   6          void NJW1159Initial(void);
+   7          
+   8          void NJW1159SetData(U8 x_Volume,U8 x_Channel)//x_Channel = Music_Volume or Mic_Volume
+   9          {
+  10   1          U16 x_NjwDataTemp;
+  11   1        if(x_Volume > (Max_Volume - 1)) x_Volume = 0xff;//音量小於1時令NJW1159 Mute
+  12   1          x_Volume <<= 1;
+  13   1          x_NjwDataTemp = (U16)x_Volume;
+  14   1          x_NjwDataTemp <<= 8;
+  15   1          x_NjwDataTemp &= 0xfe00;
+  16   1          switch(x_Channel)
+  17   1          {
+  18   2              case (0x00):
+  19   2          {
+  20   3                   NJW1159VolumeControlSet((x_NjwDataTemp | 0x0000));//Volume 1  Music_Volume_RCH
+  21   3                   NJW1159VolumeControlSet((x_NjwDataTemp | 0x0010));//Volume 2  Music_Volume_LCH
+  22   3                   break;
+  23   3          }
+  24   2              case (0x01):
+  25   2          {
+  26   3                   NJW1159VolumeControlSet((x_NjwDataTemp | 0x0003));//Volume 1  Mic_Volume_RCH
+  27   3                   NJW1159VolumeControlSet((x_NjwDataTemp | 0x0013));//Volume 2  Mic_Volume_LCH
+  28   3                   break;
+  29   3          }
+  30   2              default:{break;}
+  31   2          }
+  32   1      }//End of NJW1159SetData(U8 x_Volume,U8 x_Channel)
+  33          
+  34          void NJW1159VolumeControlSet(U16 x_NjwTemp)
+  35          {
+  36   1          U8 i;
+  37   1        NJW1159_LATCH_LOW;
+  38   1        NJWDelay(2);
+  39   1        for(i = 0; i < 16; i++)
+  40   1        {
+  41   2           if(x_NjwTemp & 0x8000)
+  42   2              NJW1159_SDA_HI;
+  43   2           else
+  44   2              NJW1159_SDA_LW;
+  45   2        
+  46   2            NJWDelay(1);
+  47   2            NJW1159_CLK_LW;
+  48   2            NJWDelay(1);
+  49   2            NJW1159_CLK_HI;
+  50   2            x_NjwTemp <<= 1;
+  51   2        }
+  52   1      
+  53   1        NJW1159_LATCH_HI;
+  54   1      
+  55   1      }//End of NJW1159VolumeControlSet(U16 x_NjwTemp)
+C51 COMPILER V9.60.7.0   NJW1159                                                           12/24/2025 13:49:45 PAGE 2   
+
+  56          //============================================================
+  57          // Set Mute
+  58          //============================================================
+  59          void NJW1159Initial(void)
+  60          {
+  61   1          NJW1159VolumeControlSet(0xbf00);//Music Volume RCH
+  62   1          NJW1159VolumeControlSet(0xbf10);//Music Volume LCH
+  63   1      
+  64   1          NJW1159VolumeControlSet(0xbf03);//Mic Volume RCH
+  65   1          NJW1159VolumeControlSet(0xbf13);//Mic Volume LCH
+  66   1      }//End of NJW1159Initial(void)
+  67          //============================================================
+  68          
+  69          
+  70          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    275    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      7    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
