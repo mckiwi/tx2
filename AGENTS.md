@@ -1,85 +1,265 @@
 # AGENTS.md
 
-給 AI Agent（OpenCode、Claude、Qwen 等）的專案速覽。**請先讀完本文件**，再依任務需求決定是否要讀 `docs/` 底下的細節文件。本文件不重複 `docs/` 的詳細內容，只做定位與導覽。
+本文件是 AI Agent（OpenCode、Claude、Qwen、Codex 等）的專案入口。
 
-## 專案目的
+**開始任務前先讀本文件。**
 
-**推論**：TX-2 是執行於 8051 相容 MCU 上的 KTV/音響擴大機控制主機板韌體，負責雙聲道（Music/Mic）音量控制、多組音效切換、輸入源/喇叭切換、7-段顯示器與狀態 LED、紅外線遙控與 RS232（ZSound 協定）雙輸入通道、EEPROM 設定持久化。
-無正式需求文件佐證，細節見 `docs/project_map.md`。
+除非使用者明確要求，否則：
 
-## MCU
+- 不要掃描整個 Repository。
+- 不要直接完整讀取 `TX-2.C`。
+- 不要修改與任務無關的檔案。
+- 先讀文件，再讀必要原始碼。
 
-- 型號：**MPC82G516A**（Megawin，8051 相容核心）
-- 記憶體：IRAM 256B、XRAM 1KB、IROM 宣告 16KB（**已證實**現行 code size 已超過此宣告值，見 `docs/build.md`）
-- 完整細節：`docs/build.md`
+---
 
-## Compiler / Toolchain
+## Standard Workflow
 
-- **Keil C51**（PK51 Prof. Developers Kit v9.60.7.0），非 GCC/Clang，非 ARM 工具鏈
+1. 閱讀 `AGENTS.md`。
+2. 閱讀 `docs/project_map.md`。
+3. 依任務選擇相關模組文件。
+4. 必要時閱讀 `docs/shared_state.md`、`docs/interrupts.md` 或 `docs/build.md`。
+5. 最後才閱讀對應原始碼。
+6. 先確認影響範圍，再進行修改。
+7. 程式碼變更後，同步更新受影響的文件。
+8. 未執行 Build 或硬體測試時，必須明確標示未驗證。
+
+完整功能開發、除錯或 Code Review 時，再閱讀：
+
+`docs/development_workflow.md`
+
+---
+
+## Task Routing
+
+| 任務 | 優先閱讀 |
+|---|---|
+| 初始化、`main()` | `docs/modules/main.md` |
+| State Machine | `docs/modules/state_machine.md` |
+| 音量、音效、輸入源、Action | `docs/modules/control_logic.md` |
+| UART、RS232、ZSound | `docs/modules/communication_protocol.md` |
+| EEPROM | `docs/modules/storage.md` |
+| IO Expander | `docs/modules/io_expander.md` |
+| 按鍵、旋鈕 | `docs/modules/key_input.md` |
+| 顯示器、LED | `docs/modules/display.md` |
+| ISR | `docs/interrupts.md` |
+| 全域變數、共享狀態 | `docs/shared_state.md` |
+| Build、Linker、Memory | `docs/build.md` |
+| 架構、模組依賴 | `docs/architecture.md` |
+| 未確認問題 | `docs/open_questions.md` |
+
+不確定時先讀：
+
+`docs/project_map.md`
+
+---
+
+## Project Summary
+
+**推論：**
+
+TX-2 是執行於 MPC82G516A 8051 相容 MCU 的 KTV／音響擴大機控制韌體，主要負責：
+
+- Music／Mic 音量控制
+- 音效與輸入源切換
+- 喇叭切換
+- 7 段顯示器與狀態 LED
+- 紅外線遙控
+- RS232／ZSound 協定
+- EEPROM 設定持久化
+
+詳細資訊見：
+
+- `docs/project_map.md`
+- `docs/architecture.md`
+
+---
+
+## Toolchain
+
+- MCU：**MPC82G516A**
+- Compiler：**Keil C51**
+- Toolchain：PK51 v9.60.7.0
 - Memory Model：**Large**
-- 可重入堆疊（reentrant stack）**全部停用**——這對 AI Agent 修改程式碼有直接影響，見下方「Memory Rules」
-- Include Path / Define 皆為空，不要假設有任何前置巨集可用
-- 完整細節：`docs/build.md`
+- IRAM：256 Bytes
+- XRAM：1 KB
+- Reentrant Stack：全部停用
+- Include Path：空
+- Project Define：空
 
-## Coding Rules（既有慣例，修改時應遵循）
+本專案不是 GCC、Clang、ARM、CMake 或一般桌面 C/C++ 專案。
 
-- 全專案**沒有依模組拆分的標頭檔**，除 `MPC82.H` 外，所有全域宣告集中於 `userdefine.h`。新增全域變數/函式原型請沿用此慣例，不要自行建立新標頭檔。
-- 硬體腳位一律透過 `userdefine.h` 的 `sbit` 巨集存取，不要在其他檔案重新定義腳位。
-- 功能開關使用 `#if 0`/`#if 1` 硬編碼於原始碼內，**沒有**透過編譯器 `-D` 巨集控制（Include Path/Define 皆為空）。
-- 已知連結器行為：`TX-2.uvproj` 設定 `CaseSensitiveSymbols=0`，原始碼中已存在 `LOUD_Action`/`Loud_Action` 大小寫不一致但仍可連結成功的案例（見 `docs/modules/control_logic.md`）。**修改函式名稱時務必確認大小寫在所有呼叫端一致**，不要依賴連結器的大小寫容忍。
-- 詳細模組職責與函式清單見 `docs/modules/*.md`，不要直接讀 4491 行的 `TX-2.C` 找函式，先查對應的 `docs/modules/*.md`。
+不要自行使用：
 
-## Memory Rules
+- C99／C11 特性
+- GCC／Clang Extension
+- 動態記憶體配置
+- 現代桌面標準函式庫假設
 
-- **可重入堆疊已停用**（`IBPSTACK/XBPSTACK/PBPSTACK=0`）。已證實專案中存在遞迴呼叫（`Main_Function_Loop`、`Sdataout`，見 `docs/build.md`），linker 僅發出警告並移除該路徑的堆疊分析，**未驗證實際堆疊峰值**。
-- **新增程式碼時絕對不要引入新的遞迴呼叫**，8051 IRAM 僅 256 bytes，沒有安全網。
-- 避免新增大型區域變數（無 XRAM 動態配置機制，靜態配置為主）。
-- 中斷服務函式（ISR）應保持精簡：`T2_int`（`TX-2.C`）已被證實承擔過多業務邏輯（詳見 `docs/interrupts.md`），**不要再往任何 ISR 內增加邏輯**，新功能應放在前景輪詢。
-- 5 個 ISR 目前都沒有 Keil `using n` 暫存器庫宣告，修改 ISR 前請先讀 `docs/interrupts.md`。
+完整資訊見：
 
-## File Structure
+`docs/build.md`
 
+---
+
+## Coding Rules
+
+### Header
+
+除 `MPC82.H` 外，共用宣告主要集中於：
+
+`userdefine.h`
+
+因此：
+
+- 不要自行建立新模組 Header。
+- 新增全域函式原型或變數宣告時，沿用現有結構。
+- 除非使用者要求重構，否則不要拆分既有宣告。
+
+### GPIO
+
+GPIO 透過 `userdefine.h` 中的 `sbit` 與巨集存取。
+
+- 不要重複定義腳位。
+- 不要猜測硬體連線。
+- 修改前先確認相關文件與 `userdefine.h`。
+
+### Feature Switch
+
+現有功能開關使用：
+
+```c
+#if 0
+#endif
+
+#if 1
+#endif
 ```
-/                       # 原始碼皆位於根目錄（無 src/ 子目錄）
-├── TX-2.C              # 最大檔案（4491 行），承擔 Application/State Machine/Control Logic/Display
-├── RS232.C             # UART 傳輸 + RS232 協定
-├── Eep24C04.c          # EEPROM 驅動
-├── IOEXP6524.c         # IO 擴充晶片驅動
-├── NJW1159.C           # 音量晶片驅動
-├── FastKey.c           # 旋鈕音量掃描
-├── ScanKeyAction.C     # 矩陣鍵盤掃描
-├── PWM.C               # 已停用（全檔 #if 0）
-├── STARTUP.A51         # Keil 標準開機碼（已證實現行建置未使用，見 docs/build.md）
-├── userdefine.h        # 全域宣告/腳位巨集/常數（唯一共用標頭）
-├── MPC82.H             # SFR 擴充定義
-├── TX-2.uvproj/.uvopt  # Keil 專案設定
-└── docs/               # 本次分析產出的完整文件（見下方索引）
-    ├── project_map.md      # 文件總索引（不確定要讀哪份文件時先讀這個）
-    ├── architecture.md
-    ├── interrupts.md
-    ├── shared_state.md
-    ├── build.md
-    ├── open_questions.md
-    └── modules/*.md         # main, state_machine, control_logic, display,
-                              # communication_protocol, storage, io_expander, key_input
+
+除非任務明確要求，否則不要引入新的 Compiler Define 管理方式。
+
+### Function Name Case
+
+Keil Project 設定：
+
+```text
+CaseSensitiveSymbols = 0
 ```
 
-## 開發流程
+已存在 `LOUD_Action`／`Loud_Action` 大小寫不一致的案例。
 
-1. **先讀 `docs/project_map.md`**，找到與任務相關的模組文件。
-2. 只在確認需要逐行細節時才打開對應的 `.c/.C` 原始碼，避免整份讀取 `TX-2.C`。
-3. 若任務涉及全域變數，先查 `docs/shared_state.md` 確認讀寫方與已知風險。
-4. 若任務涉及中斷相關程式碼，先查 `docs/interrupts.md`。
-5. 若任務涉及編譯/連結設定，先查 `docs/build.md`（已記錄多項環境依賴與建置風險）。
-6. 若發現任何 `docs/` 現有結論有誤或過時，**更新對應文件**，並視情況調整 `docs/open_questions.md`。
+- 修改函式名稱時同步檢查所有呼叫端。
+- 不要依賴 Linker 的大小寫容忍。
+- 不要無故整理既有命名。
 
-## 修改原則
+### TX-2.C
 
-- **已證實 / 推論 / 待確認必須分開標示**——這是本專案文件的既有規範（見任一 `docs/*.md`），撰寫新文件或程式註解時請延續。
-- 修改 `.c/.h/.a51` 前，先確認該函式在 `docs/modules/*.md` 中的「被使用」清單，評估影響範圍。
-- 不要假設 `STARTUP.A51` 會被實際建置流程使用（已證實不會，見 `docs/build.md`），修改開機流程前務必先確認。
-- 不要在沒有充分理由的情況下「修正」`Loud_Action`/`LOUD_Action` 這類已知但無害的命名不一致，除非任務明確要求且會同步修正所有呼叫端。
-- 涉及 IO Expander（`IOEXP6524.c`）與 Storage（`Eep24C04.c`）的修改，注意兩者各自有一套幾乎相同但獨立的軟體 I2C 原語，**不要假設修改一邊會影響另一邊**。
-- 涉及 EEPROM 位址配置（`Eep24C04.c`/`userdefine.h`）的修改要特別小心，錯誤的位址偏移會直接影響出廠設定持久化。
-- 任何新增的 ISR 邏輯、新增的遞迴呼叫、新增的全域變數，都必須同步更新 `docs/interrupts.md`／`docs/shared_state.md`，避免文件與程式碼再度失準。
-- 本文件與 `docs/` 皆為唯讀分析產出，若程式碼有實際變更，**務必回頭更新對應文件**，保持文件與程式碼一致。
+`TX-2.C` 約 4491 行，包含多種職責。
+
+先讀 `docs/modules/*.md`，再定位需要的函式。不要一開始完整掃描此檔。
+
+---
+
+## Memory and ISR Rules
+
+### Recursion
+
+Reentrant Stack 已停用，且專案已有 Linker 偵測到的遞迴呼叫：
+
+- `Main_Function_Loop`
+- `Sdataout`
+
+因此：
+
+- 絕對不要新增遞迴。
+- 不要建立循環呼叫鏈。
+- 修改呼叫關係後檢查 Build Warning 與 MAP。
+- 不要把現有 Warning 視為安全保證。
+
+### Local Variables
+
+8051 IRAM 僅 256 Bytes。
+
+- 避免大型區域變數與陣列。
+- 避免不必要的深層呼叫。
+- 優先維持現有靜態或全域配置方式。
+
+### ISR
+
+`T2_int` 已承擔過多邏輯。
+
+因此：
+
+- 不要再向 ISR 增加業務邏輯。
+- 新功能優先放在前景輪詢。
+- ISR 只處理必要旗標、計數器與硬體狀態。
+- 修改 ISR 前先讀 `docs/interrupts.md`。
+- 涉及 ISR／前景共享資料時，再讀 `docs/shared_state.md`。
+
+目前 ISR 沒有使用 Keil `using n`。不要在未理解影響前自行加入。
+
+---
+
+## Important Project Rules
+
+- `STARTUP.A51` 已證實未參與現行 Build，不要假設修改它會生效。
+- `IOEXP6524.c` 與 `Eep24C04.c` 各自有獨立的軟體 I2C 實作。
+- 不要假設修改其中一邊會影響另一邊。
+- EEPROM 位址與資料格式不可任意調整。
+- 不要自行拆分 `TX-2.C`。
+- 不要進行無關的大規模格式化或重新命名。
+- 優先維持既有行為。
+
+---
+
+## Documentation Rules
+
+文件中的結論必須區分：
+
+- **已證實**
+- **推論**
+- **待確認**
+
+不要將推論或建議寫成已證實事實。
+
+程式碼變更若影響下列內容，必須同步更新對應文件：
+
+| 變更 | 文件 |
+|---|---|
+| 架構、資料流 | `docs/architecture.md` |
+| 初始化 | `docs/modules/main.md` |
+| State Machine | `docs/modules/state_machine.md` |
+| 控制邏輯 | `docs/modules/control_logic.md` |
+| 顯示 | `docs/modules/display.md` |
+| RS232／協定 | `docs/modules/communication_protocol.md` |
+| EEPROM | `docs/modules/storage.md` |
+| IO Expander | `docs/modules/io_expander.md` |
+| 按鍵、旋鈕 | `docs/modules/key_input.md` |
+| ISR | `docs/interrupts.md` |
+| 全域或共享狀態 | `docs/shared_state.md` |
+| Build、Memory、Linker | `docs/build.md` |
+| 未確認問題 | `docs/open_questions.md` |
+
+若文件與程式碼不一致：
+
+1. 確認目前檔案是否屬於現行 Build。
+2. 以有效原始碼與 Build 證據為準。
+3. 修正文件。
+4. 無法確認時更新 `docs/open_questions.md`。
+5. 不要猜測原開發者意圖。
+
+---
+
+## Completion Report
+
+任務完成後簡要回報：
+
+- 閱讀了哪些文件與原始碼
+- 修改了哪些檔案
+- 修改內容與影響範圍
+- 是否影響 ISR、Shared State、Memory 或 Build
+- 是否更新文件
+- 是否執行 Keil Build
+- Build Error／Warning 結果
+- 是否完成硬體驗證
+- 尚待確認事項
